@@ -1,21 +1,28 @@
-# Use official Node.js image
-FROM node:22-slim
+# Step 1: Build stage
+FROM node:22-alpine AS builder
 
-# Create app directory
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Copy package.json and install dependencies
+# Install dependencies
 COPY package*.json ./
-RUN npm install --production
+RUN npm install
 
-# Copy app source
+# Copy source code and build
 COPY . .
-
-# Expose port (Cloud Run uses PORT env)
-EXPOSE 8080
-
-#
 RUN npm run build
 
-# Start app
-CMD ["npm", "run", "start"]
+# Step 2: Production stage
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Copy only production dependencies and built app
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+
+# Expose the port your app uses
+EXPOSE 3000
+
+# Start the app
+CMD ["node", "dist/index.js"]
